@@ -1,0 +1,37 @@
+---
+title: "HoughPost_example"
+author: "Panxi Chen"
+date: "2022-12-12"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(include = FALSE)
+# install.packages("devtools")
+# library(devtools)
+set.seed(666)
+```
+
+### load `HoughPost` package
+
+```{r HoughPost, include=FALSE}
+install_github("ChenPanxi/Statistical_Computing/HoughPost")
+library(HoughPost)
+```
+
+### lines
+
+```{r lines, echo=FALSE}
+
+coords_line = simulator(nline=5, npoint=20, nnoise=120, coordinate='cartesian', line_noise=TRUE, noise=TRUE)
+hs_line = hough_space(coords_line, thres=12, coordinate='cartesian')
+ht_line = hough_trans(coords_line, hs_line, coordinate='cartesian')
+```
+
+### circles
+
+```{r circles, echo=FALSE}
+coords_circle = simulator(nline=5, npoint=30, nnoise=500, coordinate='circle', line_noise=TRUE, noise=TRUE)
+hs_circle = hough_space(coords_circle, thres=50, coordinate='circle')
+ht_circle = hough_trans(coords_circle, hs_circle, coordinate='circle')
+```
