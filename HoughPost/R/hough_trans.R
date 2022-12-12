@@ -1,7 +1,7 @@
 hough_trans <- function(points, points_hs, points_shape=FALSE, steps=30, shape_type='line', radius=5, show=TRUE, show_simulation=FALSE){
   names(points) = c("x", "y")
 
-  if(typeof(points_shape)!='logical'){show_simulation=TRUE}
+  if(sum(points_shape)!=0){show_simulation=TRUE}
   if(points_shape==FALSE && show_simulation==TRUE){print("Shape data is missing.")}
 
   if(shape_type=='circle'){
@@ -12,6 +12,8 @@ hough_trans <- function(points, points_hs, points_shape=FALSE, steps=30, shape_t
     yy = radius*cos(y_df$theta) + y_df$y_center
     params = data.frame(x=xx, y=yy)
 
+    # need further improving
+    # radius = rep(radius, nrow(points_hs))
     radius = matrix(radius, nr=1)
     radius = matrix(apply(radius, c(1, 2), function(a){rep(a,(nrow(points_hs)/length(radius)))}), nc=1)
 
