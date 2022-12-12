@@ -47,7 +47,7 @@ hough_trans <- function(points, points_hs, points_shape=FALSE, steps=30, shape_t
 
   }
 
-  if(show==TRUE && show_simulation==TRUE){points(points_shape$x, points_shape$y, col='darkred')}
+  if(show==TRUE && show_simulation==TRUE){points(points_shape$x, points_shape$y, col='coral2')}
 
 
   return(params)
