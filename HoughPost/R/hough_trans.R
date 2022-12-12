@@ -1,5 +1,8 @@
-hough_trans <- function(points, points_hs, points_shape, steps=30, shape_type='line', radius=5, show=TRUE, show_simulation=TRUE){
+hough_trans <- function(points, points_hs, points_shape=FALSE, steps=30, shape_type='line', radius=5, show=TRUE, show_simulation=FALSE){
   names(points) = c("x", "y")
+
+  if(typeof(points_shape)!='logical'){show_simulation=TRUE}
+  if(points_shape==FALSE && show_simulation==TRUE){print("Shape data is missing.")}
 
   if(shape_type=='circle'){
 
@@ -9,16 +12,17 @@ hough_trans <- function(points, points_hs, points_shape, steps=30, shape_type='l
     yy = radius*cos(y_df$theta) + y_df$y_center
     params = data.frame(x=xx, y=yy)
 
+    radius = matrix(radius, nr=1)
+    radius = matrix(apply(radius, c(1, 2), function(a){rep(a,(nrow(points_hs)/length(radius)))}), nc=1)
+
+    param_circle = data.frame(r=radius, x=points_hs$x, y=points_hs$y)
+
     draw_circle <- function(param){
       theta_seq = seq(0, 2*pi, pi/30)
       xx = param['r']*sin(theta_seq) + param['x']
       yy = param['r']*cos(theta_seq) + param['y']
       lines(xx, yy, lwd=3, xlim=c(-10, 10), ylim=c(-10, 10), col='red')
     }
-
-    radius = matrix(radius, nr=1)
-    radius = matrix(apply(radius, c(1, 2), function(a){rep(a,(nrow(points_hs)/length(radius)))}), nc=1)
-    param_circle = data.frame(r=radius, x=points_hs$x, y=points_hs$y)
 
     if(show==TRUE){
       plot(points$x, points$y, xlab='x', ylab='y')
