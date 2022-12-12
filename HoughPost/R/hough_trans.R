@@ -4,18 +4,16 @@ hough_trans <- function(points, points_hs, points_shape=FALSE, steps=30, shape_t
   names(points) = c("x", "y")
 
   if(sum(points_shape)!=0){show_simulation=TRUE}
-  if(sum(points_shape)==0 && show_simulation==TRUE){print("Shape data is missing.")}
+  if(sum(points_shape)==0 & show_simulation==TRUE){print("Shape data is missing.")}
 
   if(shape_type=='circle'){
 
-    x_df = expand.grid(x_center=points_hs$x, theta=seq(0, 2*pi, pi/steps))
-    y_df = expand.grid(y_center=points_hs$y, theta=seq(0, 2*pi, pi/steps))
-    xx = radius*sin(x_df$theta) + x_df$x_center
-    yy = radius*cos(y_df$theta) + y_df$y_center
-    params = data.frame(x=xx, y=yy)
+    x_df = expand.grid(x_center=points_hs$x, theta=seq(0, 2*pi, pi/steps), radius=radius)
+    y_df = expand.grid(y_center=points_hs$y, theta=seq(0, 2*pi, pi/steps), radius=radius)
+    xx = x_df$radius*sin(x_df$theta) + x_df$x_center
+    yy = x_df$radius*cos(y_df$theta) + y_df$y_center
+    params = data.frame(x=xx, y=yy, r=x_df$radius)
 
-    # need further improving
-    # radius = rep(radius, nrow(points_hs))
     radius = matrix(radius, nr=1)
     radius = matrix(apply(radius, c(1, 2), function(a){rep(a,(nrow(points_hs)/length(radius)))}), nc=1)
 
@@ -46,13 +44,11 @@ hough_trans <- function(points, points_hs, points_shape=FALSE, steps=30, shape_t
       plot(points$x, points$y, xlab='x', ylab='y')
       apply(params, 1, function(a) {abline(a[2], a[1], lwd=3, col="red")})
     }
-
   }
 
   if(show==TRUE & show_simulation==TRUE){
     points(points_shape$x, points_shape$y, cex=point_size, lwd=point_width, pch=point_shape, col=point_color)
   }
-
 
   return(params)
 
