@@ -2,7 +2,7 @@ hough_trans <- function(points, points_hs, points_shape=FALSE, steps=30, shape_t
   names(points) = c("x", "y")
 
   if(sum(points_shape)!=0){show_simulation=TRUE}
-  if(points_shape==FALSE && show_simulation==TRUE){print("Shape data is missing.")}
+  if(sum(points_shape)==0 && show_simulation==TRUE){print("Shape data is missing.")}
 
   if(shape_type=='circle'){
 
