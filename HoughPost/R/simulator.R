@@ -70,7 +70,7 @@ simulator <- function(nshape=5, npoint=30, nnoise=100, p_min=-10, p_max=10, coef
     plot(coord$x, coord$y, xlab='x', ylab='y')
   }
 
-  if(show==TRUE && show_simulation==TRUE){points(x_coords_shape, y_coords_shape, col='darkred')}
+  if(show==TRUE && show_simulation==TRUE){points(x_coords_shape, y_coords_shape, col='coral2')}
 
 
   return(list(coord=coord, radius=radius, coord_shape=coord_shape))
