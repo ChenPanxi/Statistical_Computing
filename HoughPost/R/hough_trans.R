@@ -1,4 +1,6 @@
-hough_trans <- function(points, points_hs, points_shape=FALSE, steps=30, shape_type='line', radius=5, show=TRUE, show_simulation=FALSE){
+hough_trans <- function(points, points_hs, points_shape=FALSE, steps=30, shape_type='line', radius=5,
+                        point_size=1, point_width=2, point_shape=1, point_color='cornflowerblue',
+                        show=TRUE, show_simulation=FALSE){
   names(points) = c("x", "y")
 
   if(sum(points_shape)!=0){show_simulation=TRUE}
@@ -47,7 +49,9 @@ hough_trans <- function(points, points_hs, points_shape=FALSE, steps=30, shape_t
 
   }
 
-  if(show==TRUE && show_simulation==TRUE){points(points_shape$x, points_shape$y, col='coral2')}
+  if(show==TRUE && show_simulation==TRUE){
+    points(points_shape$x, points_shape$y, cex=point_size, lwd=point_width, pch=point_shape, col=point_color)
+  }
 
 
   return(params)
