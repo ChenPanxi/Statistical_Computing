@@ -1,7 +1,7 @@
-hough_space <- function(points, steps=180, thres=10, coordinate='cartesian', show=TRUE, nodup=TRUE){
+hough_space <- function(points, steps=180, thres=10, shape_type='line', show=TRUE, nodup=TRUE){
   names(points) <- c("theta", "rho")
 
-  if(coordinate=='cartesian'){
+  if(shape_type=='line'){
     theta_steps = seq(0, pi, by=pi/steps)
     thetas = rep(theta_steps, nrow(points))
 
@@ -13,7 +13,7 @@ hough_space <- function(points, steps=180, thres=10, coordinate='cartesian', sho
 
     if(show==TRUE){plot(thetas, rhos, type='l')}
 
-  } else if (coordinate=='circle'){
+  } else if (shape_type=='circle'){
 
     p_steps = seq(0, 2*pi, pi/steps)
     radius = 5 # radius set to be 5

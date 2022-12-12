@@ -1,30 +1,33 @@
-hough_trans <- function(points, points_hs, steps=30, coordinate='cartesian', show=TRUE){
+hough_trans <- function(points, points_hs, points_shape, steps=30, shape_type='line', radius=5, show=TRUE, show_simulation=TRUE){
   names(points) = c("x", "y")
 
-  radius = 5
-  if(coordinate=='circle'){
+  if(shape_type=='circle'){
 
-    x_df = expand.grid(x_center=hs_circle$coords$x, theta=seq(0, 2*pi, pi/steps))
-    y_df = expand.grid(y_center=hs_circle$coords$y, theta=seq(0, 2*pi, pi/steps))
+    x_df = expand.grid(x_center=points_hs$x, theta=seq(0, 2*pi, pi/steps))
+    y_df = expand.grid(y_center=points_hs$y, theta=seq(0, 2*pi, pi/steps))
     xx = radius*sin(x_df$theta) + x_df$x_center
     yy = radius*cos(y_df$theta) + y_df$y_center
     params = data.frame(x=xx, y=yy)
 
-    draw_circle <- function(center_coords){
+    draw_circle <- function(param){
       theta_seq = seq(0, 2*pi, pi/30)
-      xx = radius*sin(theta_seq) + center_coords['x']
-      yy = radius*cos(theta_seq) + center_coords['y']
+      xx = param['r']*sin(theta_seq) + param['x']
+      yy = param['r']*cos(theta_seq) + param['y']
       lines(xx, yy, lwd=3, xlim=c(-10, 10), ylim=c(-10, 10), col='red')
     }
 
+    radius = matrix(radius, nr=1)
+    radius = matrix(apply(radius, c(1, 2), function(a){rep(a,(nrow(points_hs)/length(radius)))}), nc=1)
+    param_circle = data.frame(r=radius, x=points_hs$x, y=points_hs$y)
+
     if(show==TRUE){
       plot(points$x, points$y, xlab='x', ylab='y')
-      apply(points_hs$coords, 1, FUN=draw_circle)
+      apply(param_circle, 1, FUN=draw_circle)
     }
 
-  } else if (coordinate=='cartesian'){
-    x_coords = points_hs$coords$x
-    y_coords = points_hs$coords$y
+  } else if (shape_type=='line'){
+    x_coords = points_hs$x
+    y_coords = points_hs$y
 
     slope = -cos(x_coords)/sin(x_coords)
     intercept = y_coords/sin(x_coords)
@@ -35,7 +38,10 @@ hough_trans <- function(points, points_hs, steps=30, coordinate='cartesian', sho
       plot(points$x, points$y, xlab='x', ylab='y')
       apply(params, 1, function(a) {abline(a[2], a[1], lwd=3, col="red")})
     }
+
   }
+
+  if(show==TRUE && show_simulation==TRUE){points(points_shape$x, points_shape$y, col='darkred')}
 
 
   return(params)
