@@ -1,6 +1,6 @@
 ---
 title: "HoughPost Example"
-author: "Panxi Chen"
+author: "Panxi Chen, Sophia Luo"
 date: "2022-12-12"
 output: html_document
 ---
@@ -20,7 +20,7 @@ library(HoughPost)
 
 ## Example 1.1: Line detection (3 lines)
 
-```{r lines, echo=FALSE}
+```{r lines1}
 # Generate points along lines (line shown in blue, color can be changed)
 set.seed(666)
 coords_line = simulator(nshape=3, npoint=20, nnoise=180, shape_type='line', line_noise=TRUE, noise=TRUE)
@@ -34,9 +34,10 @@ ht_line = hough_trans(coords_line$coord, hs_line$coords, shape_type='line')
 # Show detected lines compared to true lines
 ht_line = hough_trans(coords_line$coord, hs_line$coords, coords_line$coord_shape, shape_type='line')
 ```
+
 ## Example 1.2: Line detection (5 lines)
 
-```{r}
+```{r lines2}
 # Generate points along lines (line shown in blue, color can be changed)
 set.seed(666)
 coords_5_line = simulator(nshape=5, npoint=20, nnoise=135, shape_type='line', line_noise=TRUE, noise=TRUE)
@@ -52,7 +53,8 @@ ht_line = hough_trans(coords_5_line$coord, hs_5_line$coords, coords_5_line$coord
 ```
 
 Create plots that can be exported as an images for use as input to Python implementations
-```{r}
+
+```{r lines_export}
 # Example 1.1
 set.seed(666)
 coords_line = simulator(nshape=3, npoint=20, nnoise=180, shape_type='line', show_simulation = FALSE, line_noise=TRUE, noise=TRUE)
@@ -64,7 +66,7 @@ ht_line_output = simulator(nshape=5, npoint=20, nnoise=100, shape_type='line', s
 
 ## Example 2: Circle Detection (Assuming Known Radius)
 
-```{r circles, echo=FALSE}
+```{r circles}
 # Simulate points at fixed distance (blue) from random centers (shown in red)
 set.seed(666)
 circle_noise = simulator(nshape=5, npoint=25, nnoise=500, radius=5, shape_type='circle', line_noise=TRUE, noise=TRUE)
@@ -79,8 +81,10 @@ ht_circle = hough_trans(circle_noise$coord, hs_circle$coords, shape_type='circle
 # Compare detected circles to points on true circles
 ht_circle = hough_trans(circle_noise$coord, hs_circle$coords, circle_noise$coord_shape, shape_type='circle')
 ```
-Create plot that can be used as image for input to Pythom implementations
-```{r}
+
+Create plot that can be used as image for input to Python implementations
+
+```{r circles_export}
 # Example 2
 set.seed(666)
 circle_noise_output = simulator(nshape=5, npoint=25, nnoise=500, radius=5, shape_type='circle', show_simulation=FALSE, noaxis=TRUE)
