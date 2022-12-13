@@ -1,0 +1,338 @@
+---
+title: "Hough Transform Implementation"
+author: "Sophia Luo"
+date: "2022-12-04"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(terra)
+library(raster)
+library(spatstat)
+# test comment
+spatstat.options("monochrome" = TRUE)
+spatstat.options(transparent=FALSE)
+```
+Line simulations (two implementations)
+points_generator_2: uses rho = xcos(theta) + ysin(theta)
+```{r}
+points_generator_2 <- function(nline=5, npoint=30, noise_sd = 1){
+    
+    x_coords <- c()
+    y_coords <- c()
+    rho_li = c()
+    theta_li = c()
+    
+    for(i in 1:nline){
+        t = 2*pi*runif(npoint, 0, 1)
+        m = runif(1, 0, 15) # Coefficient of x
+        b = runif(1, 0, 15)
+        # Added c
+        
+        x <- runif(npoint, 0, 15)
+        e <- rnorm(npoint, 0, noise_sd)
+        
+        y <- m*x + b + e
+        
+        plot(x, y)
+        
+
+        r <- b/(x * cos(t) + y * sin(t))
+        #for(j in 1:npoint){
+        #  # Calculate rho
+        #    r[j] = b[j]/(x[j] * cos(t[j]) + y[j] * sin(t[j])  )
+        #}
+        
+        x_coords <- c(x_coords, x)
+        y_coords <- c(y_coords, y)
+        rho_li = c(rho_li, r)
+        theta_li = c(theta_li, t)
+    }
+    
+    points = data.frame(theta=theta_li, rho=rho_li, x_coords, y_coords)
+    
+    return(points)
+}
+
+random_points_uniform <- function(npoints, xlim = c(-100, 100), ylim = c(-100, 100)) {
+  random_x <- runif(npoints, min = xlim[1], max = xlim[2])
+  random_y <- runif(npoints, min = ylim[1], max = ylim[2])
+    
+  # Convert to polar coordinates
+  theta <- atan(random_y/random_y)
+  rho <- sqrt(random_x^2 + random_y^2)
+  
+  return(list(x_coords = random_x, y_coords = random_y, theta = theta, rho = rho))
+}
+
+# TODO: generate random noise in a separate process
+random_lines_polar <- function(nline = 5, npoints = 30, 
+                               xlim = c(-100, 100), slopesd = 5,
+                               percentnoise = 0.05, plot = TRUE, 
+                               n_random_points = 0) {
+  noise_size <- percentnoise*(xlim[2] - xlim[1])
+  slopes <- rnorm(nline, mean = 0, sd = slopesd); slopes
+  #slopes <- runif(nline, min = -maxslope, max = maxslope)
+  ints <- runif(nline, min = xlim[1], max = xlim[2])
+  
+  x_coords <- numeric(nline * npoints)
+  y_coords <- x_coords
+  index <- 1
+  for (i in 1:nline) {
+    # Set xmin and xmax so that a line does not exceed the bounds of a square graph
+    xmin <- xlim[1]
+    xmax <- xlim[2]
+    if (slopes[i] == 0) { # Horizontal line
+      line_x <- runif(npoints, min = xmin, max = xmax)
+      line_y <- rep(ints[i], npoints)
+      next
+    } else if (slopes[i] > 0) {
+      xmin <- max((xlim[1] - ints[i])/slopes[i], xlim[1])
+      xmax <- min((xlim[2] - ints[i])/slopes[i], xlim[2])
+    } else {
+      xmin <- max((xlim[2] - ints[i])/slopes[i], xlim[1])
+      xmax <- min((xlim[1] - ints[i])/slopes[i], xlim[2])
+    }
+    line_x <- runif(npoints, min = xmin, max = xmax)
+    line_y <- slopes[i]*line_x + ints[i] + rnorm(npoints, mean = 0, sd = noise_size)
+    index_end <- index + (npoints - 1)
+    x_coords[index:index_end] <- line_x
+    y_coords[index:index_end] <- line_y
+    #print(index); print(index_end)
+    index <- index_end + 1
+  }
+  
+  if (n_random_points > 0) {
+    random_x <- runif(n_random_points, min = xlim[1], max = xlim[2])
+    random_y <- runif(n_random_points, min = xlim[1], max = xlim[2])
+    
+    x_coords <- c(x_coords, random_x)
+    y_coords <- c(y_coords, random_y)
+  }
+  if (plot) plot(x_coords, y_coords, xlim = xlim)
+  
+  # Convert to polar coordinates
+  theta <- atan(y_coords/x_coords)
+  rho <- sqrt(x_coords^2 + y_coords^2)
+  
+  if (plot) plot(theta, rho)
+  
+  return(list(x_coords = x_coords, y_coords = y_coords, theta = theta, rho = rho, slopes = slopes, ints = ints))
+}
+```
+Point generation and visualization
+```{r}
+set.seed(10)
+```
+```{r}
+#points2 = points_generator_2(nline = 1, noise_sd = 3)
+#plot(points2$theta, points2$rho)
+
+# Interesting experiments:
+# - More noise than points
+# - Lots of lines
+# - Needle in a haystack
+
+xmin <- -100
+xmax <- 100
+
+# Generate random lines
+points <- random_lines_polar(nline = 3, npoints = 100, slopesd = 1, xlim = c(xmin,xmax), percentnoise = 0.01, n_random_points = 10)
+
+ymin <- min(points$y_coords)
+ymax <- max(points$y_coords)
+
+# Optional: generate background noise
+rand_points <- random_points_uniform(npoints = 200, xlim = c(xmin, xmax), ylim = c(ymin, ymax))
+
+# Calculate max distance from origin. TODO: I'm not sure this is right
+d <- sqrt((ymax - ymin)^2 + (xmax- xmin)^2)
+raster_base <- raster(ncol = 9, nrow = 10, xmn = xmin, xmx = xmax, ymn = ymin*1.1, ymx = ymax*1.1)
+
+# rasterize() needs a data frame of x and y points to plot
+data_points <- data.frame(x = points[["x_coords"]], y = points[["y_coords"]])
+rdata_points <- data.frame(x = rand_points$x_coords, y = rand_points$y_coords)
+
+# Add random points to line points
+#data_points <- rbind(data_points, rdata_points)
+
+raster_counts <- rasterize(data_points, raster_base, fun=function(x,...)length(x), background = 0)
+#plot(x = points[["x_coords"]], y = points[["y_coords"]])
+plot(raster_counts); points(data_points)
+```
+Transform points into traces of polar curves in Hough space
+```{r}
+theta_steps <- seq(from = 0, to = (pi), by = (pi)/180)
+theta <- rep(theta_steps, nrow(data_points))
+
+cos_sin_theta <- matrix(c(cos(theta_steps), sin(theta_steps)), byrow = T, nrow = 2)
+
+rho <- matrix(c(points[["x_coords"]], points[["y_coords"]]), ncol = 2) %*% cos_sin_theta # dimensions: (npoints * nlines) x length(theta_steps)
+rho <- t(rho) # Now rows are values of theta, columns are values of rho
+collected_points <- matrix(c(theta, rho), ncol = 2)
+
+# Plotting is slow for large n
+#plot(collected_points[,1], collected_points[,2], cex = 0.05, xlab = "theta", ylab = "rho")
+```
+For manual accuracy checking, enter eyeballed estimates here
+```{r}
+theta <- c(1.05, 0.6, 0.8)
+rho <- c(52, -22, 25) # Errors (true - estimate): +77, +49, +32.2
+# Estimated slopes
+-cos(theta)/sin(theta)
+# Estimated intercepts
+rho/sin(theta)
+
+# True slopes
+points$slopes
+# True parameters
+points$ints
+```
+
+Count the intersections
+```{r}
+theta_cell_size <- 3 # width (in degrees) by height (rho)
+# Increasing number of rows does not improve accuracy of y-intercept
+raster_base_polar <- raster(ncol = 180, nrow = 180,  xmn = 0, xmx = pi, ymn = -d*.75, ymx = d*.75)
+data_points_polar <- data.frame(x = collected_points[,1], y = collected_points[,2])
+raster_counts_polar <- rasterize(data_points_polar, raster_base_polar, fun=function(x,...)length(x), background = 0)
+# There are optional parameters for smoothing
+#spplot(raster_counts_polar, xlab = "theta", ylab = "rho", xlim = c(0, pi), ylim = c(ymin*1.1,ymax*1.1)) #, useRaster = T, interpolate = T)
+```
+Turn votes into linear parameters
+```{r}
+accumulation_mat <- matrix(values(raster_counts_polar), byrow = TRUE, ncol = ncol(raster_base_polar), nrow = nrow(raster_base_polar))
+
+top_quant <- quantile(accumulation_mat, probs = c(0.999))
+
+threshold <- top_quant
+voted <- which(accumulation_mat > threshold, arr.ind = TRUE)
+
+# First column is theta = 0 to theta = 180/theta_cell_size
+theta_bins <- seq(0, pi, by = (pi/ncol(accumulation_mat)))
+# the first row is maximum rho, last row is minimum rho
+rho_bins <- seq(ymax, ymin, by = -(ymax-ymin)/nrow(accumulation_mat))
+
+
+params <- matrix(rep(0, 4*nrow(voted)), ncol = 4)
+for (i in 1:nrow(voted)) {
+  # Calculate average theta and rho value from cell in the raster grid
+  
+  # col number = theta bin number
+  theta_bin_i <- voted[i,2]
+  #theta_i <- (theta_bins[voted[i,2]] + theta_bins[voted[i,2] + 1])
+  theta_i <- mean(theta_steps[theta_steps > theta_bins[theta_bin_i] & theta_steps <= theta_bins[theta_bin_i + 1]])
+  
+  # row number = rho bin number
+  rho_bin_i <- voted[i,1]
+  rho_i <- (rho_bins[rho_bin_i] + rho_bins[rho_bin_i + 1])
+  
+  m <- -cos(theta_i)/sin(theta_i)
+  b <- rho_i/sin(theta_i)
+  
+  params[i,] <- c(m, b, theta_i, rho_i)
+}
+
+# Check estimated rho and theta
+params[,3:4]
+```
+Reduce number of lines
+```{r}
+# Imagine a caterpillar crawling down the list of m and b estimates
+# If it encounters a value more than 0.1 greater than the last value, it returns
+# the mean of the values between its tail and its head, then moves its tail up
+# to its head
+tidy_up <- function(param_estimates, m_sep_threshold = (pi/180), b_sep_threshold) {
+  if (nrow(param_estimates) <= 1) return(param_estimates)
+  
+  m <- numeric(); b <- numeric()
+  tail_end <- 1; head_end <- 1
+  # Assumes input is sorted
+  while (head_end < nrow(param_estimates)) {
+    # TODO: this may not handle parallel lines well
+    if (head_end == nrow(param_estimates) | 
+        # Check if the next slope in the list is much different from current slope
+        (abs(param_estimates[head_end + 1, 1] - param_estimates[head_end, 1]) > m_sep_threshold) )
+        # Check if the next intercept in the list is much different 
+        #| (abs(param_estimates[head_end + 1, 2] - param_estimates[head_end, 2]) > b_sep_threshold) )
+      {
+      m <- c(m, mean(param_estimates[tail_end, 1], param_estimates[head_end, 1]))
+      b <- c(b, mean(param_estimates[tail_end, 2], param_estimates[head_end, 2]))
+      tail_end <- head_end + 1
+    }
+    head_end <- head_end + 1
+  }
+  
+  return(list(m = m, b = b))
+}
+
+tidied_params <- tidy_up(params[,1:2], pi/180, 2*(ymax-ymin)/nrow(accumulation_mat))
+tidied_params
+```
+Plot estimated lines in cartesian coordinates
+```{r}
+plot(data_points$x, data_points$y, ylim=c(ymin*1.5, ymax*1.5))
+for (i in 1:nrow(params)) {
+  abline(params[i, 2], params[i, 1])
+}
+
+plot(data_points$x, data_points$y, ylim=c(ymin*1.5, ymax*1.5))
+for (i in 1:length(tidied_params[[1]])) {
+  abline(tidied_params$b[i], tidied_params$m[i])
+}
+```
+Convert simulated data to image for compatibility with implementations that take images as input
+```{r}
+#par(mar=rep(0, 4))
+par(bg=NA)
+random_line_image <- function(nline, npoints, slopesd = 1, xlim = c(xmin,xmax), percentnoise, numxbins, numybins, n_random_points = 0) {
+  points <- random_lines_polar(nline = nline, npoints = npoints, slopesd = slopesd, xlim = xlim, percentnoise = percentnoise, plot = TRUE, n_random_points = n_random_points)
+  points_df <- data.frame(x = points[["x_coords"]], y = points[["y_coords"]])
+
+  pattern <- ppp(points_df$x, points_df$y, xlim, c(min(points_df$y), max(points_df$y)))
+  pattern_image <- as.im(pattern)
+  plot(pattern_image, main = NULL, box = FALSE, axes = FALSE, legend = FALSE, show.all = FALSE)
+  
+  #raster_frame <- raster(ncol = numxbins, nrow = numybins, xmn = xlim[1], xmx = xlim[2], ymn = ymin*1.1, ymx = ymax*1.1)
+  #raster_points <- rasterize(points_df, raster_frame, field = 1, background = 0)
+  #plot(raster_points, col = grey.colors(10, start = 1, end = 0), axes = FALSE, box = FALSE, useRaster = TRUE, interpolate = TRUE, legend = FALSE)
+}
+
+# Save images as png
+png()
+
+# 2 lines
+# No noise
+set.seed(1)
+random_line_image(nline = 2, npoints = 50, slopesd = 3, xlim = c(-100, 100), percentnoise = 0, numxbins = 150, numybins = 170)
+set.seed(1)
+random_line_image(nline = 2, npoints = 50, slopesd = 3, xlim = c(-100, 100), percentnoise = 0, numxbins = 150, numybins = 170)
+set.seed(2)
+random_line_image(nline = 2, npoints = 50, slopesd = 3, xlim = c(-100, 100), percentnoise = 0, numxbins = 150, numybins = 170)
+
+# Small noise
+set.seed(0)
+random_line_image(nline = 2, npoints = 50, slopesd = 3, xlim = c(-100, 100), percentnoise = 0.01, numxbins = 150, numybins = 170)
+set.seed(1)
+random_line_image(nline = 2, npoints = 50, slopesd = 3, xlim = c(-100, 100), percentnoise = 0.01, numxbins = 150, numybins = 170)
+set.seed(2)
+random_line_image(nline = 2, npoints = 50, slopesd = 3, xlim = c(-100, 100), percentnoise = 0.01, numxbins = 150, numybins = 170)
+
+# 4 lines
+# No noise
+set.seed(4)
+random_line_image(nline = 4, npoints = 50, slopesd = 3, xlim = c(-100, 100), percentnoise = 0, numxbins = 150, numybins = 170)
+set.seed(5)
+random_line_image(nline = 4, npoints = 50, slopesd = 3, xlim = c(-100, 100), percentnoise = 0, numxbins = 150, numybins = 170)
+set.seed(6)
+random_line_image(nline = 4, npoints = 50, slopesd = 3, xlim = c(-100, 100), percentnoise = 0, numxbins = 150, numybins = 170)
+# small noise
+set.seed(4)
+random_line_image(nline = 4, npoints = 50, slopesd = 3, xlim = c(-100, 100), percentnoise = 0.01, numxbins = 150, numybins = 170)
+set.seed(5)
+random_line_image(nline = 4, npoints = 50, slopesd = 3, xlim = c(-100, 100), percentnoise = 0.01, numxbins = 150, numybins = 170)
+set.seed(6)
+random_line_image(nline = 4, npoints = 50, slopesd = 3, xlim = c(-100, 100), percentnoise = 0.01, numxbins = 150, numybins = 170)
+dev.off()
+```

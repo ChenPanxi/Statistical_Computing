@@ -1,0 +1,228 @@
+---
+title: "Hough Transform Functions"
+author: "Sophia Luo"
+date: "2022-12-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(terra)
+library(raster)
+library(spatstat) # May be useful for converting point data to images
+spatstat.options("monochrome" = TRUE)
+spatstat.options(transparent=FALSE)
+```
+Current weaknesses with the code:
+-Entering slightly wrong y limits for raster() in the accumulator function results in serious problems with accuracy
+- tidy_up() cannot distinguish between lines with equal slope but unequal intercepts
+
+Line simulation
+```{r}
+random_lines_polar <- function(nline = 5, npoints = 30, 
+                               xlim = c(-100, 100), slopesd = 5,
+                               percentnoise = 0.01, plot = TRUE, 
+                               n_random_points = 0) {
+  noise_size <- percentnoise*(xlim[2] - xlim[1])
+  slopes <- rnorm(nline, mean = 0, sd = slopesd); slopes
+  #slopes <- runif(nline, min = -maxslope, max = maxslope)
+  ints <- runif(nline, min = xlim[1], max = xlim[2])
+  
+  x_coords <- numeric(nline * npoints)
+  y_coords <- x_coords
+  index <- 1
+  for (i in 1:nline) {
+    # Set xmin and xmax so that a line does not exceed the bounds of a square graph
+    xmin <- xlim[1]
+    xmax <- xlim[2]
+    if (slopes[i] == 0) { # Horizontal line
+      line_x <- runif(npoints, min = xmin, max = xmax)
+      line_y <- rep(ints[i], npoints)
+      next
+    } else if (slopes[i] > 0) {
+      xmin <- max((xlim[1] - ints[i])/slopes[i], xlim[1])
+      xmax <- min((xlim[2] - ints[i])/slopes[i], xlim[2])
+    } else {
+      xmin <- max((xlim[2] - ints[i])/slopes[i], xlim[1])
+      xmax <- min((xlim[1] - ints[i])/slopes[i], xlim[2])
+    }
+    line_x <- runif(npoints, min = xmin, max = xmax)
+    line_y <- slopes[i]*line_x + ints[i] + rnorm(npoints, mean = 0, sd = noise_size)
+    index_end <- index + (npoints - 1)
+    x_coords[index:index_end] <- line_x
+    y_coords[index:index_end] <- line_y
+    #print(index); print(index_end)
+    index <- index_end + 1
+  }
+  
+  if (n_random_points > 0) {
+    random_x <- runif(n_random_points, min = xlim[1], max = xlim[2])
+    random_y <- runif(n_random_points, min = xlim[1], max = xlim[2])
+    
+    x_coords <- c(x_coords, random_x)
+    y_coords <- c(y_coords, random_y)
+  }
+  if (plot) plot(x_coords, y_coords, xlim = xlim)
+  
+  # Convert to polar coordinates
+  theta <- atan(y_coords/x_coords)
+  rho <- sqrt(x_coords^2 + y_coords^2)
+  
+  if (plot) plot(theta, rho)
+  
+  return(list(x_coords = x_coords, y_coords = y_coords, theta = theta, rho = rho, slopes = slopes, ints = ints))
+}
+```
+Hough transform functions
+```{r}
+# Represent points in Cartesian coordinates as curves in polar parameter space
+# Input assumes that first column is x-coordinates, second is y-coordinates
+hough_space <- function(points, num_theta_steps = 180, plot = FALSE) {
+  theta_steps <- seq(from = 0, to = pi, by = (pi)/num_theta_steps)
+  
+  # Make a long vector so we can use matrix multiplication
+  theta <- rep(theta_steps, nrow(points))
+  cos_sin_theta <- matrix(c(cos(theta_steps), sin(theta_steps)), byrow = T, nrow = 2)
+  
+  # Formula: rho = xcos(theta) + ysin(theta)
+  rho <- matrix(c(points[,1], points[,2]), ncol = 2) %*% cos_sin_theta 
+  # dimensions: (npoints * nlines) x length(theta_steps)
+  rho <- t(rho) # Now rows are values of theta, columns are values of rho
+  collected_points <- matrix(c(theta, rho), ncol = 2)
+
+  # Plotting is slow for large n
+  if (plot) {
+    plot(collected_points[,1], collected_points[,2], cex = 0.05, xlab = "theta", ylab = "rho")
+  }
+  
+  return(collected_points)
+}
+
+# Calculate slope and intercept based on input of theta and rho.
+# Useful for checking accuracy of plot from hough_space()
+m_b_calculator <- function(theta, rho) {
+  print("Slopes: "); print(-cos(theta)/sin(theta))
+  print("Intercepts: "); print(rho/sin(theta))
+}
+
+# Raster image-based accumulator function
+# d defined as d = sqrt((ymax - ymin)^2 + (xmax- xmin)^2)
+raster_accumulator <- function(hs_points, d, n_theta_steps = 180, n_theta_cells = 180, n_rho_cells = 180, expected_n_line = 30, ymax, ymin) {
+
+  # raster() sets up a "frame" for images. Important to choose correct dimensions
+  # For poorly understood reasons, a y range of 0.75(-d, d) results in good accuracy
+  raster_base <- raster(ncol = n_theta_cells, nrow = n_rho_cells,
+                        xmn = 0, xmx = pi, ymn = -d*.75, ymx = d*.75) 
+  data_points <- data.frame(x = hs_points[,1], y = hs_points[,2])
+  
+  # Count number of points that appear in each cell of the Hough Space
+  raster_counts <- rasterize(data_points, raster_base, fun=function(x,...)length(x), background = 0)
+  
+  accumulation_mat <- matrix(values(raster_counts), byrow = TRUE, ncol = n_theta_cells, nrow = n_rho_cells)
+  
+  # expected_n_line is what percent of number of cells?
+  percent_keep <- expected_n_line/length(accumulation_mat)
+  threshold <- quantile(accumulation_mat, probs = 1 - percent_keep)
+  # Obtain indices of cells corresponding to highest votes
+  voted <- which(accumulation_mat > threshold, arr.ind = TRUE)
+  
+  # Translate cells back into values of theta and rho
+  theta_steps <- seq(from = 0, to = pi, by = (pi)/n_theta_steps)
+  # First column is theta = 0 to theta = 180/theta_cell_size
+  theta_bins <- seq(0, pi, by = (pi/n_theta_cells))
+  # the first row is maximum (positive) rho, last row is minimum (negative) rho
+  rho_bins <- seq(ymax, ymin, by = -(ymax-ymin)/n_rho_cells)
+  
+  params <- matrix(rep(0, 4*nrow(voted)), ncol = 4)
+for (i in 1:nrow(voted)) {
+  # Calculate average theta and rho value from cell in the raster grid
+  
+  # col number = theta bin number
+  theta_bin_i <- voted[i,2]
+  #theta_i <- (theta_bins[voted[i,2]] + theta_bins[voted[i,2] + 1])
+  theta_i <- mean(theta_steps[theta_steps > theta_bins[theta_bin_i] & theta_steps <= theta_bins[theta_bin_i + 1]])
+  
+  # row number = rho bin number
+  rho_bin_i <- voted[i,1]
+  rho_i <- (rho_bins[rho_bin_i] + rho_bins[rho_bin_i + 1])
+  
+  m <- -cos(theta_i)/sin(theta_i)
+  b <- rho_i/sin(theta_i)
+  
+  params[i,] <- c(m, b, theta_i, rho_i)
+}
+  return(params)
+}
+
+# Reduce number of lines
+# Imagine a caterpillar crawling down the list of m and b estimates
+# If it encounters a value more than 0.1 greater than the last value, it returns
+# the mean of the values between its tail and its head, then moves its tail up
+# to its head
+tidy_up <- function(param_estimates, m_sep_threshold = (pi/180), b_sep_threshold) {
+  if (nrow(param_estimates) <= 1) return(param_estimates)
+  
+  m <- numeric(); b <- numeric()
+  tail_end <- 1; head_end <- 1
+  # Assumes input is sorted
+  while (head_end < nrow(param_estimates)) {
+    # TODO: this may not handle parallel lines well
+    if (head_end == nrow(param_estimates) | 
+        # Check if the next slope in the list is much different from current slope
+        (abs(param_estimates[head_end + 1, 1] - param_estimates[head_end, 1]) > m_sep_threshold) )
+        # Check if the next intercept in the list is much different 
+        #| (abs(param_estimates[head_end + 1, 2] - param_estimates[head_end, 2]) > b_sep_threshold) )
+      {
+      m <- c(m, mean(param_estimates[tail_end, 1], param_estimates[head_end, 1]))
+      b <- c(b, mean(param_estimates[tail_end, 2], param_estimates[head_end, 2]))
+      tail_end <- head_end + 1
+    }
+    head_end <- head_end + 1
+  }
+  
+  return(list(m = m, b = b))
+}
+
+# Wrapper function for all Hough transform functions
+# Assumes first column of data is x coordinates, second column is y coordinates
+hough_line_detection <- function(points, xlim = c(-1000, 1000), num_theta_steps = 180, plot_hs = TRUE, n_theta_cells = 180, n_rho_cells = 180, expected_n_line = 30, tidy_up_lines = TRUE, m_sep_threshold = pi/180, b_sep_threshold = NULL) {
+  xmin <- xlim[1]; xmax <- xlim[2]
+  ymin <- min(points[,2]); ymax <- max(points[,2])
+  d <- sqrt((ymax - ymin)^2 + (xmax - xmin)^2)
+
+  hs <- hough_space(cbind(points[,1], points[,2]), plot = plot_hs)
+  accumulator <- raster_accumulator(hs, d, ymax = ymax, ymin = ymin)
+
+  if (!tidy_up_lines) {
+    plot(points[,1], points[,2], ylim=c(ymin*1.5, ymax*1.5))
+    for (i in 1:nrow(accumulator)) {
+      abline(accumulator[i, 2], accumulator[i, 1])
+    } 
+  } else {
+    if (is.null(b_sep_threshold)) b_sep_threshold = 2*(ymax-ymin)/n_rho_cells
+      tidied_params <- tidy_up(accumulator[,1:2], m_sep_threshold, b_sep_threshold)
+      plot(points[,1], points[,2], ylim=c(ymin*1.5, ymax*1.5))
+      for (i in 1:length(tidied_params[[1]])) {
+        abline(tidied_params$b[i], tidied_params$m[i])
+      }
+    
+      return(tidied_params)
+    }
+}
+```
+Test functions
+```{r}
+set.seed(615)
+xmin <- -1000; xmax <- 1000
+r_points <- random_lines_polar(nline = 3, npoints = 200, xlim = c(xmin, xmax), plot = TRUE, percentnoise = 0.01)
+#ymin <- min(r_points$y_coords);ymax <- max(r_points$y_coords)
+#d <- sqrt((ymax - ymin)^2 + (xmax- xmin)^2)
+
+#hs_test <- hough_space(cbind(r_points[["x_coords"]], r_points[["y_coords"]]), plot = TRUE)
+#accumulator_test <- raster_accumulator(hs_test, d)
+#tidied_params <- tidy_up(accumulator_test[,1:2], pi/180, 2*(ymax-ymin)/nrow(accumulation_mat))
+
+hough_line_detection(points = cbind(r_points[["x_coords"]], r_points[["y_coords"]]), xlim = c(xmin, xmax), expected_n_line = 5)
+
+```
+
