@@ -4,7 +4,7 @@ This repository was created to organize files submitted for a final project in B
 
 # Motivation
 
-Panxi Chen's research involves analysis of distribution patterns of glomeruli in slices of kidney tissue. Samples are hand-labeled and the Hough Transform, a feature extraction method, can be used to facilitate identification of patterns. However, the Hough Transform has typically been applied to images and we could not find any publicly available implementations that take point coordinates as input instead of images. Although coordinates can be roughly converted into an images using any statistical software capabable of plotting points, current image-based implementations are not robust to the noisy images that result from this conversion. Hence, a robust implmentation of the Hough Transform is necessary for the efficient and accurate analysis of the tissue samples under review.
+Panxi Chen's research involves analysis of distribution patterns of glomeruli in slices of kidney tissue. Samples are hand-labeled and the Hough Transform, a feature extraction method, can be used to facilitate identification of patterns. However, the Hough Transform has typically been applied to images and we could not find any publicly available implementations that take point coordinates as input instead of images. Although coordinates can be roughly converted into an images using any statistical software capabable of plotting points, current image-based implementations are not very robust to the noise in images that result from this conversion. Hence, a robust implementation of the Hough Transform is necessary for the efficient and accurate analysis of the tissue samples under review.
 
 # Overview of Contents
 
@@ -20,3 +20,6 @@ Functions include:
 
 ## Old Implementations
 We went through several versions of the implementation, overhauling the code at each step for accuracy, efficiency, and style. See what didn't work out in the Old_Implementations folder.
+
+## Future Directions
+We began writing an implementation utilizing `Rcpp` and will continue to work on integrating it into our package so that it will have better scalability in case it will be used to analyze larger datasets in the future.
