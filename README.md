@@ -1,6 +1,6 @@
 # What Is This Repository?
 
-This repository was created to organize files submitted for a final project in BIOSTATS 615 (Statistical Computing) taught by Dr. Hyun Min Kang at the University of Michigan: "Line Detection in Point Data Using the Hough Transformation: A Novel R Implementation." Authored by Panxi Chen, Sophia Luo, and Maya Bose (group 12). [The formal report can be found here.](https://docs.google.com/document/d/1x8tjiKyTV1YRHhuBsW-YlDhcexBaT0P2vgnaXSWaqQc/edit?usp=sharing)
+This repository was created to organize files submitted for a final project in BIOSTATS 615 (Statistical Computing) taught by Dr. Hyun Min Kang at the University of Michigan: "Feature Extraction in Point Data Representing Glomerular Distribution With the Hough Transform: A Novel R Implementation." Authored by Panxi Chen, Sophia Luo, and Maya Bose (group 12). [The formal report can be found here.](https://docs.google.com/document/d/1x8tjiKyTV1YRHhuBsW-YlDhcexBaT0P2vgnaXSWaqQc/edit?usp=sharing)
 
 # Motivation
 
