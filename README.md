@@ -4,7 +4,7 @@ This repository was created to organize files submitted for a final project in B
 
 # Motivation
 
-Panxi Chen's research involves analysis of images of human tissue samples with hand-labeled abnormalities. The analysis of patterns of abnormalities could potentially be made more efficient and accurate than human review with the help of computational feature extraction methods. However, the Hough Transform has typically been applied to images and we could not find any publicly available implementations that take point coordinates as input instead of images. Although coordinates can be roughly converted into an images using any statistical software capabable of plotting points, current image-based implementations are not robust to the noisy images that result from this conversion. Hence, a robust implmentation of the Hough Transform is necessary for the efficient and accurate analysis of the tissue samples under review.
+Panxi Chen's research involves analysis of distribution patterns of glomeruli in slices of kidney tissue. Samples are hand-labeled and the Hough Transform, a feature extraction method, can be used to facilitate identification of patterns. However, the Hough Transform has typically been applied to images and we could not find any publicly available implementations that take point coordinates as input instead of images. Although coordinates can be roughly converted into an images using any statistical software capabable of plotting points, current image-based implementations are not robust to the noisy images that result from this conversion. Hence, a robust implmentation of the Hough Transform is necessary for the efficient and accurate analysis of the tissue samples under review.
 
 # Overview of Contents
 
@@ -20,10 +20,3 @@ Functions include:
 
 ## Old Implementations
 We went through several versions of the implementation, overhauling the code at each step for accuracy, efficiency, and style. See what didn't work out in the Old_Implementations folder.
-
-# Future Directions
-Although we found that a vectorized implementation produced results more quickly than the Python solutions in our tests, if the need arises for larger datasets than what we are currently using in research, we could potentially reduce performance bottlenecks by implementing the "voting" procedure contained in `hough_space` using RCPP.
-
-A natural extension of our implementation for circle detection is to modify the accumulator function in `hough_space` to check different possible values for the radius, allowing us to detect circles of varying sizes.
-
-Since we can convert point data from our simulations into images and successfully feed them into image-based Python implementations, we wondered what would happen if we converted images into sets of Cartesian coordinates and tested our implementation on them? The [Canny edge detection](https://en.wikipedia.org/wiki/Canny_edge_detector) algorithm, which produces black-and-white version of images with edges highlighted in white, is already used in conjunction with images for the classic Hough Transform. The output of this operation could be interpreted as a set of data points representing the coordinates of white pixels. We were unable to find a suitable method of converting images to data frames, but if this method were to become available, it would be interesting to generalize our implementation to an all-purpose Hough Transform package that could accept either lists of coordinates or images.
